@@ -26,6 +26,30 @@ def sortPeaks(peaks: list[Gaussian]) -> list[Gaussian]:
                 outGaussList += [gauss]
     return outGaussList
 
+def _bounded_midpoint(bounds: tuple[float, float]) -> float:
+    return float(np.mean(bounds))
+
+def _initial_gaussian_params(x: list[float], ngauss: int, amp: list[float, float],
+                             sigma: list[int, int], centers: list[float] | None = None) -> list[float]:
+    amp_start = _bounded_midpoint(amp)
+    sigma_start = _bounded_midpoint(sigma)
+    if centers is None:
+        centers = np.linspace(min(x), max(x), ngauss + 2)[1:-1]
+
+    p0 = []
+    for center in centers:
+        p0 += [amp_start, float(center), sigma_start]
+    return p0
+
+def _fit_residual(y: list[float], fitted: list[float]) -> float:
+    return float(np.linalg.norm(np.subtract(y, fitted)) / np.sqrt(len(y)))
+
+def _toml_float(value: float) -> str:
+    return f'{float(value):.12g}'
+
+def _toml_float_list(values) -> str:
+    return ', '.join(_toml_float(value) for value in values)
+
 def evToNm(eV: float | list[float], error: float = 0.0) -> float | tuple[float, float, float]:
     '''Converts eV values to nm'''
     def ev2nm(eV):
@@ -106,11 +130,12 @@ def process(x: list[float], y: list[float], ngauss: int, amp: list[float, float]
     for i in range(ngauss):
         minbounds += [amp[0], min(x), sigma[0]]
         maxbounds += [amp[1], max(x), sigma[1]]
+    p0 = _initial_gaussian_params(x, ngauss, amp, sigma)
 
     try:
-        popt_gauss, pcov_gauss = curve_fit(derivFuncList[ngauss], x, y, bounds=(minbounds, maxbounds), maxfev=maxIter)
+        popt_gauss, pcov_gauss = curve_fit(derivFuncList[ngauss], x, y, p0=p0, bounds=(minbounds, maxbounds), maxfev=maxIter)
         error = False
-    except RuntimeError as e:
+    except (RuntimeError, ValueError) as e:
         print(e)
         print('Your input spectra may need clipping')
         return [0.0], 0.0, [0.0], [0.0], True
@@ -120,7 +145,7 @@ def process(x: list[float], y: list[float], ngauss: int, amp: list[float, float]
         if count % 3 == 0:
             amps += [i]
 
-    residual = np.abs(np.sum(np.subtract(y, derivFuncList[ngauss](x, *popt_gauss))))
+    residual = _fit_residual(y, derivFuncList[ngauss](x, *popt_gauss))
     return amps, residual, popt_gauss, pcov_gauss, error
 
 def backProcess(x: list[float], y: list[float], amp: list[float, float], sigma: list[int, int],
@@ -138,15 +163,17 @@ def backProcess(x: list[float], y: list[float], amp: list[float, float], sigma: 
     for i in culledLocList:
         minbounds += [amp[0], i - 0.001, sigma[0]]
         maxbounds += [amp[1], i, sigma[1]]
+    centers = [i - 0.0005 for i in culledLocList]
+    p0 = _initial_gaussian_params(x, ngauss, amp, sigma, centers)
 
-    popt_gauss, pcov_gauss = curve_fit(funcList[ngauss], x, y, bounds=(minbounds, maxbounds), maxfev=maxIter)
+    popt_gauss, pcov_gauss = curve_fit(funcList[ngauss], x, y, p0=p0, bounds=(minbounds, maxbounds), maxfev=maxIter)
 
     amps = []
     for count, i in enumerate(popt_gauss):
         if count % 3 == 0:
             amps += [i]
 
-    residual = np.abs(np.sum(np.subtract(y, funcList[ngauss](x, *popt_gauss))))
+    residual = _fit_residual(y, funcList[ngauss](x, *popt_gauss))
     return amps, residual, popt_gauss, pcov_gauss, ngauss
 
 def smoothing(algorithm: str, y: list[float], level: int, savgolPoly: int, savgolDeriv: int) -> list[float]:
@@ -200,17 +227,17 @@ def saveSpectrum(filename: str, filepath: str, baseLine: str, clip: tuple[float,
     tomlString = f'#### Input Parameters for {name} ####\n'
     tomlString += '[input]\n'
     tomlString += f'baseline = "{baseLine}"\n'
-    tomlString += f'spectraRangeLow = [{clip[0]:.2f}, {clip[1]:.2f}]\n'
+    tomlString += f'spectraRangeLow = [{_toml_float_list(clip)}]\n'
     tomlString += f'autoClip = {str(autoClip).lower()}\n\n'
     tomlString += '[fitting]\n'
     tomlString += f'derivLevel = {derivLevel}\n'
-    tomlString += f'ampRange = [{amp[0]:.2f}, {amp[1]:.2f}]\n'
-    tomlString += f'widthRange = [{width[0]:.2f}, {width[1]:.2f}]\n'
-    tomlString += f'convergence = {convergence:.2f}\n'
+    tomlString += f'ampRange = [{_toml_float_list(amp)}]\n'
+    tomlString += f'widthRange = [{_toml_float_list(width)}]\n'
+    tomlString += f'convergence = {_toml_float(convergence)}\n'
     tomlString += f'gaussRange = [{gaussRange[0]}, {gaussRange[1]}]\n'
     tomlString += f'maxFittingIter = {maxIter}\n\n'
     tomlString += '[refitting]\n'
-    tomlString += f'refitAmpCutoff = [{ampCutoff[0]:.2f}, {ampCutoff[1]:.2f}]\n\n'
+    tomlString += f'refitAmpCutoff = [{_toml_float_list(ampCutoff)}]\n\n'
     tomlString += '[smoothing]\n'
     tomlString += f'rawSmoothingLevel = {smoothingRaw}\n'
     tomlString += f'nonDerivSmoothingLevel = {preSmoothingSigma}\n'
