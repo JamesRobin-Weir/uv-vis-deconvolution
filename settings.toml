@@ -1,0 +1,25 @@
+#### Input Parameters for Absorbance_1 ####
+[input]
+baseline = "Level"
+spectraRangeLow = [2.50, 6.20]
+autoClip = False
+
+[fitting]
+derivLevel = 1
+ampRange = [0.00, 0.60]
+widthRange = [0.00, 2.00]
+convergence = 1.22
+gaussRange = [2, 6]
+maxFittingIter = 5000
+
+[refitting]
+refitAmpCutoff = [0.00, 4.00]
+
+[smoothing]
+rawSmoothingLevel = 13
+nonDerivSmoothingLevel = 12
+derivSmoothingLevel = 1
+smoothingAlgorithm = "Savitzky–Golay"
+SavGolPolyOrder = 2
+SavGolDerivLevel = 0
+

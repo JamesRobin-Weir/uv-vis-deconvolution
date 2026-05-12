@@ -153,7 +153,22 @@ def smoothing(algorithm: str, y: list[float], level: int, savgolPoly: int, savgo
     if algorithm == 'Gaussian':
         y = gaussian_filter1d(y, level)
     elif algorithm == 'Savitzky–Golay':
-        y = savgol_filter(y, level, savgolPoly, deriv=savgolDeriv)
+        y_len = len(y)
+        if y_len < 3:
+            return y
+
+        max_window = y_len if y_len % 2 == 1 else y_len - 1
+        polyorder = min(savgolPoly, max_window - 1)
+        window_length = max(level, polyorder + 1)
+
+        if window_length % 2 == 0:
+            window_length += 1
+        if window_length > max_window:
+            window_length = max_window
+        if polyorder >= window_length:
+            polyorder = window_length - 1
+
+        y = savgol_filter(y, window_length, polyorder, deriv=savgolDeriv)
     return y
 
 def saveSpectrum(filename: str, filepath: str, baseLine: str, clip: tuple[float, float],
@@ -186,7 +201,7 @@ def saveSpectrum(filename: str, filepath: str, baseLine: str, clip: tuple[float,
     tomlString += '[input]\n'
     tomlString += f'baseline = "{baseLine}"\n'
     tomlString += f'spectraRangeLow = [{clip[0]:.2f}, {clip[1]:.2f}]\n'
-    tomlString += f'autoClip = {autoClip}\n\n'
+    tomlString += f'autoClip = {str(autoClip).lower()}\n\n'
     tomlString += '[fitting]\n'
     tomlString += f'derivLevel = {derivLevel}\n'
     tomlString += f'ampRange = [{amp[0]:.2f}, {amp[1]:.2f}]\n'
