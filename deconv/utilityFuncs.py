@@ -17,14 +17,7 @@ class Gaussian():
     amplitude: float
 
 def sortPeaks(peaks: list[Gaussian]) -> list[Gaussian]:
-    centerList = [gauss.center for gauss in peaks]
-    sortList = sorted(centerList)
-    outGaussList = []
-    for center in sortList:
-        for gauss in peaks:
-            if gauss.center == center:
-                outGaussList += [gauss]
-    return outGaussList
+    return sorted(peaks, key=lambda gauss: gauss.center)
 
 def _bounded_midpoint(bounds: tuple[float, float]) -> float:
     return float(np.mean(bounds))
