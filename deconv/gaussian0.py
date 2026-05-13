@@ -494,6 +494,7 @@ def gaussian0_20(x, amp1, cen1, sigma1,
     gList = np.add(gList, gaussian0_func(x, amp18, cen18, sigma18))
     gList = np.add(gList, gaussian0_func(x, amp19, cen19, sigma19))
     gList = np.add(gList, gaussian0_func(x, amp20, cen20, sigma20))
+    return gList
 
 gaussian0FuncList = [gaussian0_func, gaussian0_func, gaussian0_2,  gaussian0_3,  gaussian0_4,  gaussian0_5,  gaussian0_6,  gaussian0_7,
                      gaussian0_8,    gaussian0_9,    gaussian0_10, gaussian0_11, gaussian0_12, gaussian0_13, gaussian0_14, gaussian0_15,
